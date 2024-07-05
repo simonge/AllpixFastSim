@@ -172,82 +172,40 @@ class Preprocessor(tf.keras.Model):
         # Normalise the transformed conditions and image
         self.conditions_normalizer.adapt(transformed_conditions)        
         self.image_normalizer.adapt(transformed_image)
-
-    def determine_transformations(self, conditions, isSquare):
-        def make_transformation(position):
-            # Initialize transformation parameters
-            horizontal_transform = 1.0
-            vertical_transform   = 1.0
-            transpose_image      = False
-            
-            # Determine transformations based on conditions
-            if position[0] < 0:
-                horizontal_transform = -1.0
-            if position[1] < 0:
-                vertical_transform = -1.0
-            if isSquare and abs(position[0]) < abs(position[1]):
-                transpose_image = True
-            
-            return horizontal_transform, vertical_transform, transpose_image 
-        
-        positions = conditions[:,0:2]
-        transformations = tf.map_fn(make_transformation, positions, fn_output_signature=(tf.float32, tf.float32, tf.bool)) 
-        return transformations
     
-    # Function to transform the position and momentum conditions
-    def transform_conditions(self, input):
-        conditions, transformations = input
-        # Transform the conditions
-        flip_horizontal, flip_vertical, transpose_image = transformations
-
-        # Position transformation
-        transformed_x = conditions[0] * flip_horizontal
-        transformed_y = conditions[1] * flip_vertical
-        # Momentum transformation
-        transformed_px = conditions[2] * flip_horizontal
-        transformed_py = conditions[3] * flip_vertical
-
-        # If the image is transposed, swap the x and y components
-        if transpose_image:
-            transformed_x, transformed_y = transformed_y, transformed_x
-            transformed_px, transformed_py = transformed_py, transformed_px
-        
-        return tf.stack([transformed_x, transformed_y, transformed_px, transformed_py, conditions[4]], axis=0)
-
-    # Function to transform the image
-    def transform_image(self, input):
-        image, transformations = input
-        # Transform the image
-        transformed_image = image
-        flip_horizontal, flip_vertical, transpose_image = transformations
-
-        # If the image is flipped horizontally, reverse the order of the columns
-        if flip_horizontal < 0:
-            transformed_image = tf.reverse(transformed_image, axis=[1])
-        # If the image is flipped vertically, reverse the order of the rows
-        if flip_vertical < 0:
-            transformed_image = tf.reverse(transformed_image, axis=[0])
-        # If the image is transposed, swap the x and y components
-        if transpose_image:
-            transformed_image = tf.transpose(transformed_image, perm=[1, 0, 2])
-
-        return transformed_image
-
     # Function to transform the input grid and conditions into 1/8th of a square or 1/4 of a rectangle
     def transform_input(self, conditions, image):
+
+        # Determine the transformations    
+        flip_horizontal = tf.expand_dims(conditions[:,0] < 0, axis=-1)
+        flip_vertical   = tf.expand_dims(conditions[:,1] < 0, axis=-1)
+        transpose_image = tf.expand_dims(tf.math.abs(conditions[:,0]) < tf.math.abs(conditions[:,1]), axis=-1)
         
-        transformations = self.determine_transformations(conditions, self.isSquare)
-                    
-        # Transform the conditions
-        transformed_conditions = tf.map_fn(self.transform_conditions, (conditions,transformations), fn_output_signature=tf.float32)
+        # Use tf.gather to select indices 0 and 2 from conditions tensor
+        x_conditions_indices = tf.gather(conditions, [0, 2], axis=1)
+        y_conditions_indices = tf.gather(conditions, [1, 3], axis=1)
+
+        # Negate the 0 and 2 components of the conditions when filp_horizontal is True
+        x_conditions = tf.where(flip_horizontal, -x_conditions_indices, x_conditions_indices)
+        # Negate the 1 and 3 components of the conditions when filp_vertical is True
+        y_conditions = tf.where(flip_vertical, -y_conditions_indices, y_conditions_indices)
+        # Transpose 0,1 and 2,3 indices of the conditions when transpose_image is True
+        transformed_conditions = tf.where(transpose_image, tf.stack([y_conditions[:,0], x_conditions[:,0], y_conditions[:,1], x_conditions[:,1], conditions[:,4]], axis=1), tf.concat([x_conditions, y_conditions, conditions[:,4:]], axis=1))
        
+        flip_horizontal_image = flip_horizontal[:, None, None]
+        flip_vertical_image   = flip_vertical[:, None, None]
+        transpose_image_image = transpose_image[:, None, None]
+
         # Transform the image
-        transformed_image = tf.map_fn(self.transform_image, (image,transformations), fn_output_signature=tf.float32)
+        transformed_image = tf.where(flip_horizontal_image, tf.reverse(image, axis=[2]), image)
+        transformed_image = tf.where(flip_vertical_image,   tf.reverse(transformed_image, axis=[1]), transformed_image)
+        transformed_image = tf.where(transpose_image_image, tf.transpose(image, perm=[0, 2, 1, 3]), transformed_image)
 
         return transformed_conditions, transformed_image
-
+        
     def call(self, input):
         conditions, image = input
+        # Folding input into 1/8th of a square or 1/4 of a rectangle
         transformed_conditions, transformed_image = self.transform_input(conditions, image)        
         self.adapt(transformed_conditions, transformed_image)
         normalized_conditions = self.conditions_normalizer(transformed_conditions)
@@ -262,11 +220,13 @@ class Preprocessor(tf.keras.Model):
 class Generator(tf.keras.Model):
     def __init__(self, original_model):
         super(Generator, self).__init__()
-        # self.conditions_encoder = original_model.conditions_encoder
         self.decoder    = original_model.decoder
         self.latent_dim = original_model.latent_dim
         self.nconditions = original_model.nconditions
         self.output_names = ['output']
+
+        # Pre and Post processor
+
 
     def call(self, conditions):
         # Concatenate conditions and z along the last axis

@@ -44,7 +44,7 @@ with uproot.open(file_path) as file:
     tree = file['events']
 
     # Extracting data from the ROOT file
-    df = tree.arrays(['x', 'y', 'px', 'py', 'start_time', 'charge', 'time'], entry_stop=100)
+    df = tree.arrays(['x', 'y', 'px', 'py', 'start_time', 'charge', 'time'], entry_stop=1000000)
     
     # Shape data into 2 channel image
     target_data = np.stack([df['charge'].to_numpy(), df['time'].to_numpy()],axis=2)
@@ -57,9 +57,9 @@ with uproot.open(file_path) as file:
     transformed_conditions_tensor, transformed_image_tensor = preprocessor((conditions_tensor, image_tensor))
     
     # Create vectors of train and test indices
-    total_samples = transformed_conditions_tensor.shape[0]
-    train_size = int(0.75 * total_samples)
-    indices = tf.range(start=0, limit=total_samples, dtype=tf.int32)
+    total_samples    = transformed_conditions_tensor.shape[0]
+    train_size       = int(0.75 * total_samples)
+    indices          = tf.range(start=0, limit=total_samples, dtype=tf.int32)
     shuffled_indices = tf.random.shuffle(indices)
     
     # Use TensorFlow's indexing to split the dataset
