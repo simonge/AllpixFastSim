@@ -11,7 +11,7 @@
 #include "PixelHit.hpp"
 
 
-int Convert_Data(TString inName="/scratch/EIC/Events/Allpix2/Allpix2_Out_tpx4_synctest.root", TString outName="/scratch/EIC/Events/Allpix2/Out_Convert_synctest.root") {
+int Convert_Data(TString inName="/scratch/EIC/Events/Allpix2/Allpix2_time2.root", TString outName="/scratch/EIC/Events/Allpix2/Convert_time2.root") {
 
 
 
@@ -44,11 +44,13 @@ int Convert_Data(TString inName="/scratch/EIC/Events/Allpix2/Allpix2_Out_tpx4_sy
     // Constants
     double pitch = 0.055;
 
+    // Original grid size 9x9
+    int starting_size = 9;
     // Limit grid size from 10x10
-    int grid_size = 6;
+    int grid_size = 9;
     int grid_area = grid_size*grid_size;
     // shift grid by half the size rounded down
-    int shift_grid = int((10-grid_size)/2);
+    int shift_grid = int((starting_size-grid_size)/2);
 
     // Create branches in the output tree for the members of the allpix::MCParticle class
     double x, y, z = 0;
@@ -65,8 +67,8 @@ int Convert_Data(TString inName="/scratch/EIC/Events/Allpix2/Allpix2_Out_tpx4_sy
     // Create branches in the output tree for the members of the allpix::PixelHit class
     std::vector<int>    pixel_x, pixel_y;
     std::vector<double> charge,  time;
-    outputTree->Branch("pixel_x", &pixel_x);
-    outputTree->Branch("pixel_y", &pixel_y);
+    // outputTree->Branch("pixel_x", &pixel_x);
+    // outputTree->Branch("pixel_y", &pixel_y);
     outputTree->Branch("charge",  &charge );
     outputTree->Branch("time",    &time   );
 
