@@ -72,12 +72,12 @@ class Adversarial(tf.keras.Model):
 # Define the Conditional, Adviserial Variational Autoencoder
 ######################################################
 class VAE(tf.keras.Model):
-    def __init__(self, latent_dim=50, nconditions=5, grid_size=9 ):
+    def __init__(self, latent_dim=50, nconditions=5, grid_size=9, nSamples=100 ):
         super(VAE, self).__init__()
         self.flat_shape  = grid_size*grid_size*2
         self.latent_dim  = latent_dim
         self.nconditions = nconditions        
-        self.nSamples    = 1000
+        self.nSamples    = nSamples
 
         self.encoder     = Encoder(nconditions, latent_dim, self.flat_shape)
         self.decoder     = Decoder(nconditions, latent_dim, grid_size)
@@ -90,7 +90,8 @@ class VAE(tf.keras.Model):
         self.optimizer_adversarial     = a_optimizer
 
     # Function to reparameterize the latent space
-    def reparameterize(self, mean, logvar, nSamples=1000):
+    def reparameterize(self, mean, logvar):
+        #eps = tf.random.normal(shape=(self.nSamples, tf.shape(mean)[0], tf.shape(mean)[1]))
         eps = tf.random.normal(shape=tf.shape(mean))
         return eps * tf.exp(logvar * .5) + mean
     
@@ -155,6 +156,18 @@ class VAE(tf.keras.Model):
         return {"loss": total_loss, "reconstruction_loss": reconstruction_loss, "kl_loss": kl_loss, "adversarial_loss": adversarial_loss}
         #return reconstruction
 
+######################################################
+# Define denomalisation layer inverting a tfkl nomorlisation layer
+######################################################
+class Denormalization(tf.keras.layers.Layer):
+    def __init__(self, normalizer, name=None):
+        super(Denormalization, self).__init__(name=name)
+        self.normalizer = normalizer
+
+    def call(self, inputs):
+        mean = self.normalizer.mean
+        variance = self.normalizer.variance
+        return inputs * tf.sqrt(variance) + mean
 
 ######################################################
 # Define the Preprocessor
@@ -164,6 +177,8 @@ class Preprocessor(tf.keras.Model):
         super(Preprocessor, self).__init__()
         self.conditions_normalizer = tfkl.Normalization(name='conditions_normalizer')
         self.image_normalizer      = tfkl.Normalization(name='image_normalizer')
+        self.conditions_denormalizer = Denormalization(self.conditions_normalizer, name='conditions_denormalizer')
+        self.image_denormalizer      = Denormalization(self.image_normalizer, name='image_denormalizer')
         self.isSquare = isSquare
 
     def adapt(self, conditions, image):
@@ -202,7 +217,25 @@ class Preprocessor(tf.keras.Model):
         transformed_image = tf.where(transpose_image_image, tf.transpose(image, perm=[0, 2, 1, 3]), transformed_image)
 
         return transformed_conditions, transformed_image
+    
+    def transform_output(self, conditions, image):
+        # Determine the transformations    
+        flip_horizontal = conditions[:,0] < 0
+        flip_vertical   = conditions[:,1] < 0
+        transpose_image = tf.math.abs(conditions[:,0]) < tf.math.abs(conditions[:,1])
         
+        flip_horizontal_image = flip_horizontal[:, None, None, None]
+        flip_vertical_image   = flip_vertical[:, None, None, None]
+        transpose_image_image = transpose_image[:, None, None, None]
+
+        # Transform the image
+        transformed_image = tf.where(flip_horizontal_image, tf.reverse(image, axis=[2]), image)
+        transformed_image = tf.where(flip_vertical_image,   tf.reverse(transformed_image, axis=[1]), transformed_image)
+        if self.isSquare:
+            transformed_image = tf.where(transpose_image_image, tf.transpose(image, perm=[0, 2, 1, 3]), transformed_image)
+        
+        return transformed_image
+
     def call(self, input):
         conditions, image = input
         # Folding input into 1/8th of a square or 1/4 of a rectangle
@@ -218,11 +251,14 @@ class Preprocessor(tf.keras.Model):
 # Define the Generator
 ######################################################
 class Generator(tf.keras.Model):
-    def __init__(self, original_model):
+    def __init__(self, vae_model, preprocessor):
         super(Generator, self).__init__()
-        self.decoder    = original_model.decoder
-        self.latent_dim = original_model.latent_dim
-        self.nconditions = original_model.nconditions
+        self.decoder    = vae_model.decoder
+        self.latent_dim = vae_model.latent_dim
+        self.nconditions = vae_model.nconditions
+        self.conditions_normalizer = preprocessor.conditions_normalizer
+        self.image_denormalizer = preprocessor.image_denormalizer
+        self.transform_output = preprocessor.transform_output
         self.output_names = ['output']
 
         # Pre and Post processor
@@ -233,8 +269,11 @@ class Generator(tf.keras.Model):
         z = tf.random.normal(shape=(tf.shape(conditions)[0], self.latent_dim))
         #input = tf.concat([conditions,z], axis=-1)
         #concat = self.concatLatentSpace(conditions,z)
-        reconstructed = self.decoder(conditions, z)
-        return reconstructed
+        normalized_conditions = self.conditions_normalizer(conditions)
+        reconstructed = self.decoder(normalized_conditions, z)
+        denorm_reconstructed = self.image_denormalizer(reconstructed)
+        transformed_reconstructed = self.transform_output(conditions, denorm_reconstructed)
+        return transformed_reconstructed
     
 ######################################################
 # Define latent space encoder
@@ -253,6 +292,11 @@ class LatentSpace(tf.keras.Model):
         return eps * tf.exp(logvar * .5) + mean
     
     def call(self, input):
-        mean, logvar = self.encoder(input)
+        conditions, image = input  # Unpack the data from the input tuple
+
+        # Flatten the image other than the batch dimension and concatenate with the conditions
+        data = tf.concat([conditions, tf.reshape(image, (tf.shape(image)[0], -1))], axis=-1)
+
+        mean, logvar = self.encoder(data)
         z = self.reparameterize(mean, logvar)
         return z

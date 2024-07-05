@@ -77,24 +77,24 @@ with uproot.open(file_path) as file:
     # model_name = model_path+'.keras'
     # vae.save(model_name)
     
-    # decoder = Generator(vae)
+    decoder = Generator(vae,preprocessor)
 
-    # outTest = decoder(conditions_tensors[:1])
+    outTest = decoder(conditions_tensor[:1])
     # #outTest = decoder.predict(conditions_tensors[:1])
-    # print(outTest)
+    print(outTest)
 
-    # input_signature = [tf.TensorSpec([None,nconditions], tf.float32, name='x')]
+    input_signature = [tf.TensorSpec([None,nconditions], tf.float32, name='x')]
     
-    # # Convert the model
-    # onnx_model, _ = tf2onnx.convert.from_keras(decoder,input_signature, opset=13)
-    # onnx.save(onnx_model, model_path+".onnx")
+    # Convert the model
+    onnx_model, _ = tf2onnx.convert.from_keras(decoder,input_signature, opset=13)
+    onnx.save(onnx_model, model_path+".onnx")
 
-    # latent_encoder  = LatentSpace(vae)
-    # outTest_latent = latent_encoder(input_tensors[:1])
-    # print(outTest_latent)
+    latent_encoder  = LatentSpace(vae)
+    outTest_latent = latent_encoder((conditions_train[:1], image_train[:1]))
+    print(outTest_latent)
 
 
-    # input_signature_latent = [tf.TensorSpec([None,nInput], tf.float32, name='x')]
+    input_signature_latent = [tf.TensorSpec([None,nInput], tf.float32, name='x')]
     
-    # onnx_model_latent, _ = tf2onnx.convert.from_keras(latent_encoder,input_signature_latent, opset=13)
-    # onnx.save(onnx_model_latent, model_path+"_latent.onnx")
+    onnx_model_latent, _ = tf2onnx.convert.from_keras(latent_encoder,input_signature_latent, opset=13)
+    onnx.save(onnx_model_latent, model_path+"_latent.onnx")
