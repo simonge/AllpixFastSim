@@ -16,7 +16,7 @@ from model_generator import Preprocessor
 epochs = 200
 batch_size = 5000
 model_dir  = '/scratch/EIC/models/Allpix/'
-model_name = 'model_electron3'
+model_name = 'model_electron'
 model_path = model_dir+model_name
 data_grid_size = 9
 data_shape = (-1, data_grid_size, data_grid_size, 2)
@@ -30,7 +30,7 @@ nInput = nconditions + data_grid_size*data_grid_size*2
 file_path = '/scratch/EIC/Events/Allpix2/Convert_time3.root'
 
 #vae = create_model()
-vae = VAE(latent_dim=20,nconditions=nconditions,grid_size=data_grid_size)
+vae = VAE(latent_dim=60,nconditions=nconditions,grid_size=data_grid_size)
 
 vae.compile(r_optimizer=Adam(),a_optimizer=Adam())
 
@@ -42,7 +42,7 @@ with uproot.open(file_path) as file:
     tree = file['events']
 
     # Extracting data from the ROOT file
-    df = tree.arrays(['x', 'y', 'px', 'py', 'start_time', 'charge', 'time'], entry_stop=1000000)
+    df = tree.arrays(['x', 'y', 'px', 'py', 'start_time', 'charge', 'time'], entry_stop=1500000)
     
     # Shape data into 2 channel image
     target_data = np.stack([df['charge'].to_numpy(), df['time'].to_numpy()],axis=2)
@@ -75,18 +75,24 @@ with uproot.open(file_path) as file:
     # model_name = model_path+'.keras'
     # vae.save(model_name)
     
-    decoder = Generator(vae,preprocessor)
+    generator = Generator(vae,preprocessor)
 
-    outTest = decoder(conditions_tensor[:1])
+    outTest = generator(conditions_tensor[:1])
+    #print(outTest)
+    #outTest = generator(conditions_tensor[:5])
+    #print(outTest)
     
     input_signature = [tf.TensorSpec([None,nconditions], tf.float32, name='x')]
     
     # Convert the model
-    onnx_model, _ = tf2onnx.convert.from_keras(decoder,input_signature, opset=13)
+    onnx_model, _ = tf2onnx.convert.from_keras(generator,input_signature, opset=13)
     onnx.save(onnx_model, model_path+".onnx")
 
     latent_encoder  = LatentSpace(vae,preprocessor)
     outTest_latent = latent_encoder([conditions_val[:1], image_val[:1]])
+    #print(outTest_latent)
+    #outTest_latent = latent_encoder([conditions_val[:5], image_val[:5]])
+    #print(outTest_latent)
     
 
     input_signature_latent = [tf.TensorSpec([None,nconditions], tf.float32, name='x'),tf.TensorSpec([None,data_grid_size,data_grid_size,2], tf.float32, name='y')]

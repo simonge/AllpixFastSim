@@ -4,7 +4,7 @@ import onnxruntime as ort
 
 output_dir = 'plots/'
 model_dir = '/scratch/EIC/models/Allpix/'
-model_base = "model_electron2"
+model_base = "model_electron"
 model_name = model_dir+model_base+".onnx"
 # Load the ONNX model
 sess = ort.InferenceSession(model_name)
@@ -22,7 +22,7 @@ input_name = sess.get_inputs()[0].name
 # Generate and plot the outputs
 for j, input_tensor in enumerate(input_tensors[:,:,0:5]):
     
-    print(input_tensor) 
+    print(input_tensor.shape) 
 
     # Initialize the figure
     fig, axs = plt.subplots(num_plots, num_plots * 2, figsize=(40, 20))

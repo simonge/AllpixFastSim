@@ -235,6 +235,27 @@ class Preprocessor(tf.keras.Model):
             transformed_image = tf.where(transpose_image_image, tf.transpose(image, perm=[0, 2, 1, 3]), transformed_image)
         
         return transformed_image
+    
+    def transform_conditions(self, conditions):
+        # Determine the transformations    
+        # Determine the transformations    
+        flip_horizontal = tf.expand_dims(conditions[:,0] < 0, axis=-1)
+        flip_vertical   = tf.expand_dims(conditions[:,1] < 0, axis=-1)
+        transpose_image = tf.expand_dims(tf.math.abs(conditions[:,0]) < tf.math.abs(conditions[:,1]), axis=-1)
+        
+        
+        # Use tf.gather to select indices 0 and 2 from conditions tensor
+        x_conditions_indices = tf.gather(conditions, [0, 2], axis=1)
+        y_conditions_indices = tf.gather(conditions, [1, 3], axis=1)
+
+        # Negate the 0 and 2 components of the conditions when filp_horizontal is True
+        x_conditions = tf.where(flip_horizontal, -x_conditions_indices, x_conditions_indices)
+        # Negate the 1 and 3 components of the conditions when filp_vertical is True
+        y_conditions = tf.where(flip_vertical, -y_conditions_indices, y_conditions_indices)
+        # Transpose 0,1 and 2,3 indices of the conditions when transpose_image is True
+        transformed_conditions = tf.where(transpose_image, tf.stack([y_conditions[:,0], x_conditions[:,0], y_conditions[:,1], x_conditions[:,1], conditions[:,4]], axis=1), tf.concat([x_conditions, y_conditions, conditions[:,4:]], axis=1))
+        
+        return transformed_conditions
 
     def call(self, input):
         conditions, image = input
@@ -253,12 +274,13 @@ class Preprocessor(tf.keras.Model):
 class Generator(tf.keras.Model):
     def __init__(self, vae_model, preprocessor):
         super(Generator, self).__init__()
-        self.decoder    = vae_model.decoder
-        self.latent_dim = vae_model.latent_dim
+        self.decoder     = vae_model.decoder
+        self.latent_dim  = vae_model.latent_dim
         self.nconditions = vae_model.nconditions
         self.conditions_normalizer = preprocessor.conditions_normalizer
-        self.image_denormalizer = preprocessor.image_denormalizer
-        self.transform_output = preprocessor.transform_output
+        self.image_denormalizer    = preprocessor.image_denormalizer
+        self.transform_output      = preprocessor.transform_output
+        self.transform_conditions  = preprocessor.transform_conditions
         self.output_names = ['output']
 
         # Pre and Post processor
@@ -269,9 +291,10 @@ class Generator(tf.keras.Model):
         z = tf.random.normal(shape=(tf.shape(conditions)[0], self.latent_dim))
         #input = tf.concat([conditions,z], axis=-1)
         #concat = self.concatLatentSpace(conditions,z)
-        normalized_conditions = self.conditions_normalizer(conditions)
-        reconstructed = self.decoder(normalized_conditions, z)
-        denorm_reconstructed = self.image_denormalizer(reconstructed)
+        transformed_conditions    = self.transform_conditions(conditions)
+        normalized_conditions     = self.conditions_normalizer(transformed_conditions)
+        reconstructed             = self.decoder(normalized_conditions, z)
+        denorm_reconstructed      = self.image_denormalizer(reconstructed)
         transformed_reconstructed = self.transform_output(conditions, denorm_reconstructed)
         return transformed_reconstructed
     
@@ -287,6 +310,7 @@ class LatentSpace(tf.keras.Model):
         self.encoder      = original_model.encoder
         self.conditions_normalizer = preprocessor.conditions_normalizer
         self.image_normalizer = preprocessor.image_normalizer
+        self.transform_input = preprocessor.transform_input
         self.output_names = ['output']
 
     def reparameterize(self, mean, logvar):
@@ -295,8 +319,9 @@ class LatentSpace(tf.keras.Model):
     
     def call(self, input):
         conditions, image = input  # Unpack the data from the input tuple
-        normalized_conditions = self.conditions_normalizer(conditions)
-        normalized_image      = self.image_normalizer(image)
+        transformed_conditions, transformed_image = self.transform_input(conditions, image)
+        normalized_conditions = self.conditions_normalizer(transformed_conditions)
+        normalized_image      = self.image_normalizer(transformed_image)
 
         # Flatten the image other than the batch dimension and concatenate with the conditions
         data = tf.concat([normalized_conditions, tf.reshape(normalized_image, (tf.shape(normalized_image)[0], -1))], axis=-1)
