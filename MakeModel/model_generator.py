@@ -279,12 +279,14 @@ class Generator(tf.keras.Model):
 # Define latent space encoder
 ######################################################
 class LatentSpace(tf.keras.Model):
-    def __init__(self, original_model):
+    def __init__(self, original_model, preprocessor):
         super(LatentSpace, self).__init__()
-        self.flat_shape  = original_model.flat_shape
-        self.nconditions = original_model.nconditions
-        self.input_layer = tfkl.InputLayer(shape=(self.flat_shape+self.nconditions,))
-        self.encoder    = original_model.encoder
+        self.flat_shape   = original_model.flat_shape
+        self.nconditions  = original_model.nconditions
+        self.input_layer  = tfkl.InputLayer(shape=(self.flat_shape+self.nconditions,))
+        self.encoder      = original_model.encoder
+        self.conditions_normalizer = preprocessor.conditions_normalizer
+        self.image_normalizer = preprocessor.image_normalizer
         self.output_names = ['output']
 
     def reparameterize(self, mean, logvar):
@@ -293,9 +295,11 @@ class LatentSpace(tf.keras.Model):
     
     def call(self, input):
         conditions, image = input  # Unpack the data from the input tuple
+        normalized_conditions = self.conditions_normalizer(conditions)
+        normalized_image      = self.image_normalizer(image)
 
         # Flatten the image other than the batch dimension and concatenate with the conditions
-        data = tf.concat([conditions, tf.reshape(image, (tf.shape(image)[0], -1))], axis=-1)
+        data = tf.concat([normalized_conditions, tf.reshape(normalized_image, (tf.shape(normalized_image)[0], -1))], axis=-1)
 
         mean, logvar = self.encoder(data)
         z = self.reparameterize(mean, logvar)

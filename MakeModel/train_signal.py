@@ -16,13 +16,12 @@ from model_generator import Preprocessor
 epochs = 200
 batch_size = 5000
 model_dir  = '/scratch/EIC/models/Allpix/'
-model_name = 'model_electron'
+model_name = 'model_electron2'
 model_path = model_dir+model_name
 data_grid_size = 9
 data_shape = (-1, data_grid_size, data_grid_size, 2)
 
 condition_columns = ['x', 'y', 'px', 'py', 'start_time']
-#condition_columns = ['x', 'y']
 nconditions = len(condition_columns)
 
 nInput = nconditions + data_grid_size*data_grid_size*2
@@ -33,7 +32,6 @@ file_path = '/scratch/EIC/Events/Allpix2/Convert_time2.root'
 #vae = create_model()
 vae = VAE(latent_dim=10,nconditions=nconditions,grid_size=data_grid_size)
 
-#vae.compile(optimizer=Adam())
 vae.compile(r_optimizer=Adam(),a_optimizer=Adam())
 
 # Preprocessor
@@ -80,21 +78,18 @@ with uproot.open(file_path) as file:
     decoder = Generator(vae,preprocessor)
 
     outTest = decoder(conditions_tensor[:1])
-    # #outTest = decoder.predict(conditions_tensors[:1])
-    print(outTest)
-
+    
     input_signature = [tf.TensorSpec([None,nconditions], tf.float32, name='x')]
     
     # Convert the model
     onnx_model, _ = tf2onnx.convert.from_keras(decoder,input_signature, opset=13)
     onnx.save(onnx_model, model_path+".onnx")
 
-    latent_encoder  = LatentSpace(vae)
-    outTest_latent = latent_encoder((conditions_train[:1], image_train[:1]))
-    print(outTest_latent)
+    latent_encoder  = LatentSpace(vae,preprocessor)
+    outTest_latent = latent_encoder([conditions_val[:1], image_val[:1]])
+    
 
-
-    input_signature_latent = [tf.TensorSpec([None,nInput], tf.float32, name='x')]
+    input_signature_latent = [tf.TensorSpec([None,nconditions], tf.float32, name='x'),tf.TensorSpec([None,data_grid_size,data_grid_size,2], tf.float32, name='y')]
     
     onnx_model_latent, _ = tf2onnx.convert.from_keras(latent_encoder,input_signature_latent, opset=13)
     onnx.save(onnx_model_latent, model_path+"_latent.onnx")
