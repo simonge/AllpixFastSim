@@ -11,7 +11,10 @@
 #include "PixelHit.hpp"
 
 
-int Convert_Data(TString inName="/scratch/EIC/Events/Allpix2/Allpix2_time2.root", TString outName="/scratch/EIC/Events/Allpix2/Convert_time2.root") {
+int Convert_Data(
+    TString inName="/scratch/EIC/Events/Allpix2/Allpix2_time3.root", 
+    TString outName="/scratch/EIC/Events/Allpix2/Convert_time3.root"
+    ) {
 
 
 

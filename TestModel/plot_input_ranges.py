@@ -4,11 +4,14 @@ import uproot
 from tensorflow import sparse, stack
 
 # Load data from the ROOT file
-file_path = 'output/Out_Convert_Big.root'
+file_path = '/scratch/EIC/Events/Allpix2/Convert_time2.root'
+
 output_dir = 'plots/'
 
 num_plots = 3
-data_grid_size = 6
+data_grid_size = 9
+data_shape = (-1, data_grid_size, data_grid_size, 2)
+
 sensor_thickness = 300.0/55.0 # Thickness in pixel dimensions
 
 # Assuming the ROOT file structure: MCParticles and PixelHits trees
@@ -16,17 +19,17 @@ infile = uproot.open(file_path)
 tree  = infile['events']
 
 #static input tensor
-input_tensors = np.array([[0.5, 0.5, 0.0, 0.0],[0.25, 0.25, 0.0, 0.0],[0.0, 0.0,-0.05,-0.05],[0.5, 0.1,0.0,0.0],[0.0, 0.5,0.05,0.05],[0.25, 0.5,0.05,0.05]], dtype=np.float32)
+input_tensors = np.array([[[0.5, 0.5, 0.0, 0.0, 0.0]],[[0.25, 0.25, 0.0, 0.0, 5.0]],[[0.0, 0.0,-0.05,-0.05,0.1]],[[0.5, 0.1, 0.0, 0.0, 10.0]],[[0.0, 0.5, 0.05, 0.05, 14.0]],[[0.25, 0.5, 0.05, 0.05, 24.5]]], dtype=np.float32)
 
 # Range of input values to accept
-input_range = np.array([0.05,0.05,0.01,0.01])
+input_range = np.array([0.05,0.05,0.01,0.01,5.0])
 
 # Extracting data from the ROOT file
-df = tree.arrays(['x', 'y', 'px', 'py', 'charge', 'time'], library="pd")
+df = tree.arrays(['x', 'y', 'px', 'py', 'start_time', 'charge', 'time'], library='pd')
 
 # Plot x, y 2d distribution in a 1x1 range
 plt.figure()
-plt.hist2d(df['x'], df['y'], bins=(400, 400), range=[[-3, 3], [-3, 3]], cmap='viridis')
+plt.hist2d(df['x'].to_numpy(), df['y'].to_numpy(), bins=(400, 400), range=[[-4.5, 4.5], [-4.5, 4.5]], cmap='viridis')
 plt.xlabel('x [pixel pitch]')
 plt.ylabel('y [pixel pitch]')
 plt.grid(True)
@@ -34,17 +37,19 @@ plt.savefig(output_dir + 'x_y_distribution.png')
 
 # Plot px, py 2d distribution in a 1x1 range
 plt.figure()
-plt.hist2d(df['px'], df['py'], bins=(100, 100), range=[[-1, 1], [-1, 1]], cmap='viridis')
+plt.hist2d(df['px'].to_numpy(), df['py'].to_numpy(), bins=(100, 100), range=[[-1, 1], [-1, 1]], cmap='viridis')
 plt.xlabel('px')
 plt.ylabel('py')
 plt.savefig(output_dir + 'px_py_distribution.png')
 
-
 #nHitsA = np.sum(np.where(df['time']>0, df['time'], 0), axis=1)
-timeValues   = np.stack(df['time'].to_numpy())
-chargeValues = np.stack(df['charge'].to_numpy())
+target_data = np.stack([df['charge'].to_numpy(), df['time'].to_numpy()],axis=2)
+image_tensor = target_data.reshape(data_shape)
 
-nHits = np.sum(timeValues>0,axis=1)
+charges = image_tensor[:,:,:,0]
+times   = image_tensor[:,:,:,1]
+
+nHits = np.sum(charges>0,axis=(1,2))
 # Plot the number of pixels with signal for each entry
 plt.figure()
 plt.hist(nHits, bins=12, range=(0, 12))
@@ -68,19 +73,19 @@ plt.savefig(output_dir + 'num_hit.png')
 
 # Plot the charge distribution
 plt.figure()
-plt.hist(chargeValues[np.where(chargeValues>0)] , bins=6, range=(0, 6))
+plt.hist(charges[charges>0] , bins=6, range=(0, 6))
 plt.xlabel('Charge')
 plt.ylabel('Number of entries')
 plt.savefig(output_dir + 'charge_distribution.png')
 
 # Plot the time distribution
 plt.figure()
-plt.hist(timeValues[np.where(timeValues>0)], bins=30, range=(0, 30))
+plt.hist(times[times>0], bins=60, range=(0, 60))
 plt.xlabel('Time')
 plt.ylabel('Number of entries')
 plt.savefig(output_dir + 'time_distribution.png')
 
-for j, input_tensor in enumerate(input_tensors[:,0:4]):
+for j, input_tensor in enumerate(input_tensors[:,0,0:4]):
 
     output_extension = 'x-' + str(input_tensor[0]) + '_y-' + str(input_tensor[1]) + '_px-' + str(input_tensor[2]) + '_py-' + str(input_tensor[3]) + '.png'
 
@@ -99,6 +104,8 @@ for j, input_tensor in enumerate(input_tensors[:,0:4]):
 
     if len(df2) == 0:
         continue
+
+    
     timeValues2  = np.stack(df2['time'].to_numpy())
     nHits2       = np.sum(timeValues2>0,axis=1)
     # Plot the length of pixel_x for each entry

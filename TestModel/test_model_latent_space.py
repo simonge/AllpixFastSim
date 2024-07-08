@@ -7,19 +7,21 @@ import pandas as pd
 import tensorflow as tf
 
 output_dir = 'plots/'
-model_base = "model_digitization"
-model_name = model_base+"_latent.onnx"
+model_dir = '/scratch/EIC/models/Allpix/'
+model_base = "model_electron2_latent"
+model_name = model_dir+model_base+".onnx"
 # Load the ONNX model
 sess = ort.InferenceSession(model_name)
 
-condition_columns    = ['x', 'y', 'px', 'py']
-condition_ranges     = [[0, 0.5], [0, 0.5], [-0.2, 0.2], [-0.2, 0.2]]
+condition_columns    = ['x', 'y', 'px', 'py', 'start_time']
+condition_ranges     = [[0, 0.5], [0, 0.5], [-0.2, 0.2], [-0.2, 0.2], [0, 25]]
 nConditions = len(condition_columns)
 
-input_name = sess.get_inputs()[0].name
+conditions_name = sess.get_inputs()[0].name
+image_name = sess.get_inputs()[1].name
 
 # Load data from the ROOT file
-file_path = 'output/Out_Convert_Big.root'
+file_path = '/scratch/EIC/Events/Allpix2/Convert_time2.root'
 output_dir = 'plots/'
 
 # Assuming the ROOT file structure: MCParticles and PixelHits trees
@@ -27,19 +29,18 @@ infile = uproot.open(file_path)
 tree  = infile['events']
 
 # Extracting data from the ROOT file
-df = tree.arrays(['x', 'y', 'px', 'py', 'pixel_x', 'pixel_y', 'charge', 'time'], entry_stop=100000)
+df = tree.arrays(['x', 'y', 'px', 'py', 'start_time', 'charge', 'time'], entry_stop=100000)
 
-data_grid_size = 6
+data_grid_size = 9
+data_shape = (-1, data_grid_size, data_grid_size, 2)
 
-target_tensors = np.concatenate([df['charge'].to_numpy().astype(np.float32), df['time'].to_numpy().astype(np.float32)], axis=1)
-       
-conditions_tensors = df[condition_columns].to_numpy()
-conditions_tensors = np.array([list(t) for t in conditions_tensors]).astype(np.float32)
- 
-input_tensors = np.concatenate([conditions_tensors, target_tensors], axis=1)
+target_data = np.stack([df['charge'].to_numpy(), df['time'].to_numpy()],axis=2).astype(np.float32)
+image_tensor = target_data.reshape(data_shape)
+          
+conditions_tensor = np.stack([df[name].to_numpy() for name in condition_columns], axis=1).astype(np.float32)
 
 # Predict the output for the input tensor
-output = sess.run(None, {input_name: input_tensors})
+output = sess.run(None, {conditions_name: conditions_tensor, image_name: image_tensor})
 
 nOutputs = output[0].shape[-1]
 
@@ -75,7 +76,7 @@ for i in range(nConditions):
     for j in range(nOutputs):
         col = int(j//nRows)
         row = int(j%nRows)
-        axs[row,col].hist2d(conditions_tensors[:,i], output[0][:,j], bins=(200, 200), cmap=plt.cm.jet, range=[condition_ranges[i], [-5, 5]])#, norm=colors.LogNorm())
+        axs[row,col].hist2d(conditions_tensor[:,i], output[0][:,j], bins=(200, 200), cmap=plt.cm.jet, range=[condition_ranges[i], [-5, 5]])#, norm=colors.LogNorm())
         axs[row,col].set_xlabel(condition_columns[i])
         axs[row,col].set_ylabel('Output '+str(j))
     plt.savefig(output_dir + out_tag + '.png')

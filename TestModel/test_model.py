@@ -3,23 +3,24 @@ import numpy as np
 import onnxruntime as ort
 
 output_dir = 'plots/'
-model_base = "model_digitization2"
-model_name = model_base+".onnx"
+model_dir = '/scratch/EIC/models/Allpix/'
+model_base = "model_electron2"
+model_name = model_dir+model_base+".onnx"
 # Load the ONNX model
 sess = ort.InferenceSession(model_name)
 
 # Define the number of plots
 num_plots = 3
-data_grid_size = 6
+data_grid_size = 9
 
 #static input tensor
-input_tensors = np.array([[[0.5, 0.5, 0.0, 0.0]],[[0.25, 0.25, 0.0, 0.0]],[[0.0, 0.0,-0.05,-0.05]],[[0.5, 0.1,0.0,0.0]],[[0.0, 0.5,0.05,0.05]],[[0.25, 0.5,0.05,0.05]]], dtype=np.float32)
-input_tags    = ['x', 'y', 'px', 'py']
+input_tensors = np.array([[[0.5, 0.5, 0.0, 0.0, 0.0]],[[0.25, 0.25, 0.0, 0.0, 5.0]],[[0.0, 0.0,-0.05,-0.05,0.1]],[[0.5, 0.1, 0.0, 0.0, 10.0]],[[0.0, 0.5, 0.05, 0.05, 14.0]],[[0.25, 0.5, 0.05, 0.05, 24.5]]], dtype=np.float32)
+input_tags    = ['x', 'y', 'px', 'py', 'start_time']
 
 input_name = sess.get_inputs()[0].name
 
 # Generate and plot the outputs
-for j, input_tensor in enumerate(input_tensors[:,:,0:4]):
+for j, input_tensor in enumerate(input_tensors[:,:,0:5]):
     
     print(input_tensor) 
 
@@ -43,18 +44,25 @@ for j, input_tensor in enumerate(input_tensors[:,:,0:4]):
         # Predict the output for the input tensor
         output = sess.run(None, {input_name: input_tensor})
         output = output[0]
-        output = output.reshape((1, 2, data_grid_size, data_grid_size))
+        #output = output.reshape((1, 2, data_grid_size, data_grid_size))
 
-        round_output = np.ceil(output-0.2)
+        #round_output = np.ceil(output-0.2)
         #round_output = output
+        charges = output[0,:,:,0]
+        round_charges = np.ceil(charges-0.2)
+
+        times = output[0,:,:,1]
+        round_times = np.where(round_charges>0,np.ceil(times-0.2),0)
 
         # Plot the output grid for the first channel
-        im_charge = axs[i * 2].imshow(round_output[0,0,:,:], cmap='viridis', extent=[0, data_grid_size, 0, data_grid_size], vmin=0.1, vmax=3)
+        im_charge = axs[i * 2].imshow(round_charges, cmap='viridis', extent=[0, data_grid_size, 0, data_grid_size], vmin=0.1, vmax=5)
         axs[i * 2].set_title('Charge')
         fig.colorbar(im_charge, ax=axs[i * 2], orientation='vertical')
 
+        
+
         # Plot the output grid for the second channel
-        im_time = axs[i * 2 + 1].imshow(round_output[0,1,:,:], cmap='viridis', extent=[0, data_grid_size, 0, data_grid_size], vmin=0.1, vmax=10)
+        im_time = axs[i * 2 + 1].imshow(round_times, cmap='viridis', extent=[0, data_grid_size, 0, data_grid_size], vmin=0.1, vmax=30)
         axs[i * 2 + 1].set_title('Time')
         fig.colorbar(im_time, ax=axs[i * 2 + 1], orientation='vertical')
 

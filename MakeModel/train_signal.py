@@ -16,7 +16,7 @@ from model_generator import Preprocessor
 epochs = 200
 batch_size = 5000
 model_dir  = '/scratch/EIC/models/Allpix/'
-model_name = 'model_electron2'
+model_name = 'model_electron3'
 model_path = model_dir+model_name
 data_grid_size = 9
 data_shape = (-1, data_grid_size, data_grid_size, 2)
@@ -27,10 +27,10 @@ nconditions = len(condition_columns)
 nInput = nconditions + data_grid_size*data_grid_size*2
 
 # Load data from the ROOT file
-file_path = '/scratch/EIC/Events/Allpix2/Convert_time2.root'
+file_path = '/scratch/EIC/Events/Allpix2/Convert_time3.root'
 
 #vae = create_model()
-vae = VAE(latent_dim=10,nconditions=nconditions,grid_size=data_grid_size)
+vae = VAE(latent_dim=20,nconditions=nconditions,grid_size=data_grid_size)
 
 vae.compile(r_optimizer=Adam(),a_optimizer=Adam())
 
