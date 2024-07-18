@@ -4,7 +4,7 @@ import onnxruntime as ort
 
 output_dir = 'plots/'
 model_dir = '/scratch/EIC/models/Allpix/'
-model_base = "model_electron"
+model_base = "model_electron_5"
 model_name = model_dir+model_base+".onnx"
 # Load the ONNX model
 sess = ort.InferenceSession(model_name)

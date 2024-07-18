@@ -8,7 +8,7 @@ import tensorflow as tf
 
 output_dir = 'plots/'
 model_dir = '/scratch/EIC/models/Allpix/'
-model_base = "model_electron_latent"
+model_base = "model_electron_5_latent"
 model_name = model_dir+model_base+".onnx"
 # Load the ONNX model
 sess = ort.InferenceSession(model_name)
@@ -19,9 +19,15 @@ nConditions = len(condition_columns)
 
 conditions_name = sess.get_inputs()[0].name
 image_name = sess.get_inputs()[1].name
+conditions_shape = sess.get_inputs()[0].shape
+image_shape = sess.get_inputs()[1].shape
+print(conditions_name)
+print(image_name)
+print(conditions_shape)
+print(image_shape)
 
 # Load data from the ROOT file
-file_path = '/scratch/EIC/Events/Allpix2/Convert_time2.root'
+file_path = '/scratch/EIC/Events/Allpix2/Convert_time_5.root'
 output_dir = 'plots/'
 
 # Assuming the ROOT file structure: MCParticles and PixelHits trees
@@ -31,16 +37,19 @@ tree  = infile['events']
 # Extracting data from the ROOT file
 df = tree.arrays(['x', 'y', 'px', 'py', 'start_time', 'charge', 'time'], entry_stop=100000)
 
-data_grid_size = 9
+data_grid_size = 5
 data_shape = (-1, data_grid_size, data_grid_size, 2)
 
 target_data = np.stack([df['charge'].to_numpy(), df['time'].to_numpy()],axis=2).astype(np.float32)
 image_tensor = target_data.reshape(data_shape)
-          
+print(image_tensor.shape)
+print(image_tensor[0])
+
 conditions_tensor = np.stack([df[name].to_numpy() for name in condition_columns], axis=1).astype(np.float32)
 
 # Predict the output for the input tensor
 output = sess.run(None, {conditions_name: conditions_tensor, image_name: image_tensor})
+
 
 nOutputs = output[0].shape[-1]
 

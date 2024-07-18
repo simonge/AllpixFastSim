@@ -13,7 +13,7 @@
 
 int Convert_Data(
     TString inName="/scratch/EIC/Events/Allpix2/Allpix2_time3.root", 
-    TString outName="/scratch/EIC/Events/Allpix2/Convert_time3.root"
+    TString outName="/scratch/EIC/Events/Allpix2/Convert_time_5.root"
     ) {
 
 
@@ -50,7 +50,7 @@ int Convert_Data(
     // Original grid size 9x9
     int starting_size = 9;
     // Limit grid size from 10x10
-    int grid_size = 9;
+    int grid_size = 5;
     int grid_area = grid_size*grid_size;
     // shift grid by half the size rounded down
     int shift_grid = int((starting_size-grid_size)/2);

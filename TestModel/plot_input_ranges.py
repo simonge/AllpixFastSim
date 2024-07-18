@@ -57,6 +57,13 @@ plt.xlabel('Number of hit pixels')
 plt.ylabel('Number of entries')
 plt.savefig(output_dir + 'num_hit.png')
 
+# Plot Start time distribution
+plt.figure()
+plt.hist(df['start_time'].to_numpy(), bins=1000, range=(0, 25))
+plt.xlabel('Start time')
+plt.ylabel('Number of entries')
+plt.savefig(output_dir + 'start_time_distribution.png')
+
 # # Plot the x_pixel distribution
 # plt.figure()
 # plt.hist(np.concatenate(df['pixel_x'].values), bins=data_grid_size, range=(0, data_grid_size))

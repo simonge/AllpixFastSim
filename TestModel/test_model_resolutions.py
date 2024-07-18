@@ -7,9 +7,13 @@ import time
 
 output_dir = 'plots/'
 model_dir = '/scratch/EIC/models/Allpix/'
-model_base = "model_electron"
+predictor_base  = 'predictor_electron_gnn'
+predictor_name = model_dir+predictor_base+".onnx"
+model_base = "model_electron_5"
 model_name = model_dir+model_base+".onnx"
+
 # Load the ONNX model
+predictor_session = ort.InferenceSession(predictor_name)
 sess = ort.InferenceSession(model_name)
 
 input_name = sess.get_inputs()[0].name
@@ -17,7 +21,7 @@ input_name = sess.get_inputs()[0].name
 # Load data from the ROOT file
 file_path = '/scratch/EIC/Events/Allpix2/Convert_time2.root'
 
-data_grid_size = 9
+data_grid_size = 5
 
 # Assuming the ROOT file structure: MCParticles and PixelHits trees
 infile = uproot.open(file_path)
@@ -27,10 +31,6 @@ tree  = infile['events']
 df = tree.arrays(['x', 'y', 'px', 'py', 'start_time', 'charge', 'time'], library='pd')#, entry_stop=10000)
 
 input_data = df[['x', 'y', 'px', 'py', 'start_time']].values.astype(np.float32)
-
-print(input_data.shape)
-print(sess.get_inputs()[0].shape)
-
 
 # Predict the output for the input tensor
 start_time = time.time()
@@ -56,9 +56,9 @@ charge_x = np.sum(squared_charges, axis=2)
 charge_y = np.sum(squared_charges, axis=1)
 
 # Mean index across x position of square charge
-mean_index_x = 4-np.sum(charge_x*np.arange(data_grid_size), axis=1)/np.sum(charge_x, axis=1)#float(data_grid_size)/2
+mean_index_x = 2-np.sum(charge_x*np.arange(data_grid_size), axis=1)/np.sum(charge_x, axis=1)#float(data_grid_size)/2
 # Mean index across y position of square charge
-mean_index_y = np.sum(charge_y*np.arange(data_grid_size), axis=1)/np.sum(charge_y, axis=1)-4#float(data_grid_size)/2
+mean_index_y = np.sum(charge_y*np.arange(data_grid_size), axis=1)/np.sum(charge_y, axis=1)-2#float(data_grid_size)/2
 
 #Plot predicted x-y distribution in a 3x3 range
 plt.figure()

@@ -36,10 +36,8 @@ class Decoder(tf.keras.Model):
         self.grid_size  = grid_size
         self.decode = tf.keras.Sequential([            
             tfkl.InputLayer(shape=(latent_dim+nconditions,),name='input_layer'),
-            tfkl.Dense(256, activation='relu'),
-            tfkl.Dense(256, activation='relu'),
-            tfkl.Dense(1024, activation='relu'),
-            tfkl.Dense(1024, activation='relu'),
+            tfkl.Dense(64, activation='relu'),
+            tfkl.Dense(512, activation='relu'),
             tfkl.Dense(self.flat_shape, name='output_layer')
         ])
 
@@ -57,9 +55,7 @@ class Adversarial(tf.keras.Model):
         super(Adversarial, self).__init__()
         self.reconstruct_conditions = tf.keras.Sequential([
             tfkl.InputLayer(shape=(latent_dim,)),
-            tfkl.Dense(1024, activation='relu'),
             tfkl.Dense(256, activation='relu'),
-            tfkl.Dense(64, activation='relu'),
             tfkl.Dense(16, activation='relu'),
             tfkl.Dense(nconditions, activation='linear')
         ])
