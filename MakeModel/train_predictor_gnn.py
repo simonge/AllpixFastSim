@@ -9,16 +9,16 @@ import tf2onnx
 import awkward as ak
 
 from model_predictor_gnn import Predictor
-from model_predictor_gnn import make_model
 
-epochs = 400
+epochs = 200
 batch_size = 10000
 model_dir  = '/scratch/EIC/models/Allpix/'
-model_name = 'predictor_gnn_full_det'
+model_name = 'predictor_gnn_full_det3'
 model_path = model_dir+model_name
 
 node_columns   = ['pixel_x', 'pixel_y', 'charge', 'time']
-target_columns = ['x', 'y', 'px', 'py', 'start_time']
+# target_columns = ['x', 'y', 'px', 'py', 'start_time']
+target_columns = ['x', 'y', 'start_time']
 nnodeparams    = len(node_columns)
 ntargets       = len(target_columns)
 
