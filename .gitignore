@@ -1,1 +1,5 @@
 TestModel/plots/
+*.pyc
+*.pcm
+*.d
+*.so
