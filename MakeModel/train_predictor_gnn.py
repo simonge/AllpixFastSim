@@ -14,7 +14,7 @@ from model_predictor_gnn import make_model
 epochs = 400
 batch_size = 10000
 model_dir  = '/scratch/EIC/models/Allpix/'
-model_name = 'predictor_electron_gnn'
+model_name = 'predictor_gnn_full_det'
 model_path = model_dir+model_name
 
 node_columns   = ['pixel_x', 'pixel_y', 'charge', 'time']
@@ -23,7 +23,7 @@ nnodeparams    = len(node_columns)
 ntargets       = len(target_columns)
 
 # Load data from the ROOT file
-file_path = '/scratch/EIC/Events/Allpix2/Convert_time_GNN.root'
+file_path = '/scratch/EIC/Events/Allpix2/Convert_full_det.root'
 
 # predictor = make_model(nNodeParameters=nnodeparams, nPredictions=ntargets)
 predictor = Predictor(nNodeParameters=nnodeparams, nPredictions=ntargets)
