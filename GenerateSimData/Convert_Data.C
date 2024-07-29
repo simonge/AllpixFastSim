@@ -12,8 +12,8 @@
 
 
 int Convert_Data(
-    TString inName="/scratch/EIC/Events/Allpix2/Allpix2_time3.root", 
-    TString outName="/scratch/EIC/Events/Allpix2/Convert_time_5.root"
+    TString inName="/scratch/EIC/Events/Allpix2/Allpix2_full_det.root", 
+    TString outName="/scratch/EIC/Events/Allpix2/Convert_full_det.root"
     ) {
 
 
@@ -70,8 +70,8 @@ int Convert_Data(
     // Create branches in the output tree for the members of the allpix::PixelHit class
     std::vector<int>    pixel_x, pixel_y;
     std::vector<double> charge,  time;
-    // outputTree->Branch("pixel_x", &pixel_x);
-    // outputTree->Branch("pixel_y", &pixel_y);
+    outputTree->Branch("pixel_x", &pixel_x);
+    outputTree->Branch("pixel_y", &pixel_y);
     outputTree->Branch("charge",  &charge );
     outputTree->Branch("time",    &time   );
 
@@ -84,8 +84,8 @@ int Convert_Data(
         pixelChargeBranch->GetEntry(i);
         pixelHitBranch->GetEntry(i);
 
-        charge = std::vector<double>(grid_area, 0);
-        time   = std::vector<double>(grid_area, 0);
+        // charge = std::vector<double>(grid_area, 0);
+        // time   = std::vector<double>(grid_area, 0);
 
         for (auto particle: input_particles) {
             auto start = particle->getGlobalStartPoint();
@@ -122,17 +122,17 @@ int Convert_Data(
             int y_index = hit->getIndex().Y();
 
             //shift grid by half the size rounded down
-            x_index = x_index - shift_grid;
-            y_index = y_index - shift_grid;
+            // x_index = x_index - shift_grid;
+            // y_index = y_index - shift_grid;
 
-            if(x_index < 0 || x_index >= grid_size || y_index < 0 || y_index >= grid_size) continue;
+            // if(x_index < 0 || x_index >= grid_size || y_index < 0 || y_index >= grid_size) continue;
             
-            //pixel_x.push_back(x_index);
-            //pixel_y.push_back(y_index);
-            //charge.push_back(hit->getSignal());
-            //time.push_back(hit->getLocalTime());
-            charge[x_index*grid_size + y_index] = hit->getSignal();
-            time[x_index*grid_size + y_index] = hit->getLocalTime();
+            pixel_x.push_back(x_index);
+            pixel_y.push_back(y_index);
+            charge.push_back(hit->getSignal());
+            time.push_back(hit->getLocalTime());
+            // charge[x_index*grid_size + y_index] = hit->getSignal();
+            // time[x_index*grid_size + y_index] = hit->getLocalTime();
         }
 
         outputTree->Fill();
